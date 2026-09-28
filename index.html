@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sign-in test">
+<title>LibLande sign-in test</title>
+<style>
+:root {
+  --bg: #f7f6f3; --panel: #ffffff; --text: #1f2328; --muted: #5f6570; --faint: #8a9099; --line: #e3e1dc;
+  --accent: #2f6f5e; --accent-ink: #ffffff; --accent-soft: #e3efea; --warn: #b3261e; --ok: #1f7a4d;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace; --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #16181b; --panel: #1f2226; --text: #e8e6e3; --muted: #a8adb4; --faint: #7b8189; --line: #30343a;
+    --accent: #6cc0a4; --accent-ink: #0f1a16; --accent-soft: #1f3a31; --warn: #f28b82; --ok: #7fd4a8; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 var(--ui);
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px)); }
+main { max-width: 640px; margin: 0 auto; display: grid; gap: 14px; }
+h1 { font-size: 20px; margin: 0; }
+p { margin: 0; color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 10px; }
+.card h2 { margin: 0; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: 600 14px var(--ui); border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 8px; padding: 9px 14px; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+input[type="text"] { width: 100%; font: 13px var(--mono); padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); }
+.status { font-size: 17px; font-weight: 600; }
+.status.ok { color: var(--ok); } .status.bad { color: var(--warn); }
+dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 13px; }
+dt { color: var(--faint); } dd { margin: 0; overflow-wrap: anywhere; }
+code { font: 12.5px var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; overflow-wrap: anywhere; }
+ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 13.5px; display: grid; gap: 4px; }
+#log { font: 12px/1.5 var(--mono); max-height: 360px; overflow: auto; margin: 0; white-space: pre-wrap; }
+#log .err { color: var(--warn); } #log .good { color: var(--ok); }
+.hint { font-size: 12.5px; color: var(--faint); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>LibLande sign-in test</h1>
+    <p>Tries out how signing in to Google works for a LibLande hosted on GitHub Pages: how often you're asked, and whether renewing works in a Home Screen app.</p>
+  </header>
+
+  <section class="card">
+    <h2>Now</h2>
+    <div class="status" id="status">Not signed in</div>
+    <dl>
+      <dt>Token</dt><dd id="tokenInfo">none</dd>
+      <dt>Account</dt><dd id="account">unknown</dd>
+      <dt>Running as</dt><dd id="mode"></dd>
+      <dt>Address</dt><dd id="origin"></dd>
+    </dl>
+    <div class="row">
+      <button type="button" class="primary" id="signIn">Sign in</button>
+      <button type="button" id="renew">Renew quietly</button>
+      <button type="button" id="check">Check Drive</button>
+    </div>
+    <p class="hint">After 50 minutes, the next tap anywhere on this page renews the token by itself, as LibLande would.</p>
+  </section>
+
+  <section class="card">
+    <h2>Log</h2>
+    <pre id="log"></pre>
+    <div class="row">
+      <button type="button" id="copyLog">Copy log</button>
+      <button type="button" id="clearLog">Clear log</button>
+    </div>
+    <p class="hint">Kept on this device between launches (the last 200 entries).</p>
+  </section>
+
+  <section class="card">
+    <h2>Setup</h2>
+    <label for="clientId" class="hint">OAuth client ID (from Google Cloud Console)</label>
+    <input type="text" id="clientId" placeholder="1234567890-abc.apps.googleusercontent.com" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <ol>
+      <li>At <b>console.cloud.google.com</b>, create a project (for example, LibLande).</li>
+      <li>Under <b>APIs &amp; Services</b>, enable the <b>Google Drive API</b>.</li>
+      <li>Under <b>Google Auth Platform</b>: set up the app (External), add yourself under <b>Audience</b> as a test user, and under <b>Data access</b> add the scope <code>.../auth/drive.readonly</code>.</li>
+      <li>Under <b>Clients</b>, create a <b>Web application</b> client, with <b>Authorized JavaScript origins</b> set to <code id="originHint"></code>.</li>
+      <li>Copy its client ID into the box above.</li>
+    </ol>
+    <p class="hint">This page asks only to read your Drive, and only reads your account name and storage. The token stays on this device.</p>
+  </section>
+</main>
+
+<script src="https://accounts.google.com/gsi/client" async defer id="gis"></script>
+<script>
+(function () {
+  'use strict';
+  var SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+  var RENEW_AFTER = 50 * 60 * 1000;
+  var $ = function (id) { return document.getElementById(id); };
+  var store = {
+    get: function (k, d) { try { var v = localStorage.getItem('signtest.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem('signtest.' + k, JSON.stringify(v)); } catch (e) {} }
+  };
+  var standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  var token = store.get('token', null);   // {value, at, expiresIn}
+  var email = store.get('email', '');
+  var client = null, pending = null;
+
+  // ---- log
+  function stamp(d) { d = d || new Date(); return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+  function log(msg, kind) {
+    var entries = store.get('log', []);
+    entries.push({ t: Date.now(), m: msg, k: kind || '' });
+    if (entries.length > 200) entries = entries.slice(-200);
+    store.set('log', entries);
+    drawLog();
+  }
+  function drawLog() {
+    var el = $('log');
+    el.textContent = '';
+    store.get('log', []).slice().reverse().forEach(function (e) {
+      var line = document.createElement('div');
+      if (e.k) line.className = e.k;
+      line.textContent = stamp(new Date(e.t)) + '  ' + e.m;
+      el.appendChild(line);
+    });
+    if (!el.firstChild) el.textContent = 'Nothing yet.';
+  }
+
+  // ---- state
+  function age() { return token ? Date.now() - token.at : Infinity; }
+  function valid() { return token && age() < token.expiresIn * 1000 - 60000; }
+  function mins(ms) { var m = Math.round(ms / 60000); return m + ' min'; }
+  function show() {
+    var s = $('status');
+    if (!store.get('clientId', '')) { s.textContent = 'Paste a client ID below to start'; s.className = 'status'; }
+    else if (valid()) { s.textContent = 'Signed in'; s.className = 'status ok'; }
+    else if (token) { s.textContent = 'Token expired: tap to renew'; s.className = 'status bad'; }
+    else { s.textContent = 'Not signed in'; s.className = 'status'; }
+    $('tokenInfo').textContent = token
+      ? (valid() ? 'expires in ' + mins(token.at + token.expiresIn * 1000 - Date.now()) : 'expired') + ' (got ' + mins(age()) + ' ago)'
+      : 'none';
+    $('account').textContent = email || 'unknown';
+    $('signIn').disabled = $('renew').disabled = !client;
+    $('check').disabled = !valid();
+  }
+
+  // ---- Google Identity Services
+  function makeClient() {
+    var id = store.get('clientId', '');
+    if (!id || !window.google || !google.accounts || !google.accounts.oauth2) return;
+    client = google.accounts.oauth2.initTokenClient({
+      client_id: id,
+      scope: SCOPE,
+      callback: function (resp) {
+        var p = pending; pending = null;
+        var took = p ? ((Date.now() - p.at) / 1000).toFixed(1) + ' s' : '?';
+        if (resp.error) { log((p ? p.how : 'Request') + ' failed: ' + resp.error + (resp.error_description ? ' (' + resp.error_description + ')' : ''), 'err'); show(); return; }
+        token = { value: resp.access_token, at: Date.now(), expiresIn: +resp.expires_in || 3600 };
+        store.set('token', token);
+        log((p ? p.how : 'Token') + ' worked in ' + took + (p && p.auto ? ' (automatic, on a tap)' : ''), 'good');
+        show();
+        checkDrive(true);
+      },
+      error_callback: function (err) {
+        var p = pending; pending = null;
+        log((p ? p.how : 'Request') + ' didn’t finish: ' + (err && (err.type || err.message) || 'unknown'), 'err');
+        show();
+      }
+    });
+    show();
+  }
+  function request(how, prompt, auto) {
+    if (!client || pending) return;
+    pending = { how: how, at: Date.now(), auto: !!auto };
+    var opts = { prompt: prompt };
+    if (email) opts.login_hint = email;
+    try { client.requestAccessToken(opts); }
+    catch (e) { pending = null; log(how + ' threw: ' + e.message, 'err'); }
+  }
+  function checkDrive(quiet) {
+    if (!valid()) return;
+    fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)', { headers: { Authorization: 'Bearer ' + token.value } })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('error ' + r.status)); })
+      .then(function (j) {
+        if (j.user && j.user.emailAddress) { email = j.user.emailAddress; store.set('email', email); }
+        if (!quiet) log('Drive answered: signed in as ' + email, 'good');
+        show();
+      })
+      .catch(function (e) { log('Drive check failed: ' + e.message, 'err'); });
+  }
+
+  // ---- buttons
+  $('signIn').addEventListener('click', function () { request('Sign-in', email ? '' : 'consent'); });
+  $('renew').addEventListener('click', function () { request('Quiet renewal', ''); });
+  $('check').addEventListener('click', function () { checkDrive(false); });
+  // Any other tap renews a token that's old or expired, as LibLande would.
+  document.addEventListener('click', function (ev) {
+    if (ev.target.closest('button, input')) return;
+    if (token && age() > RENEW_AFTER) request('Quiet renewal', '', true);
+  });
+  $('clientId').value = store.get('clientId', '');
+  $('clientId').addEventListener('change', function () {
+    store.set('clientId', this.value.trim());
+    log('Client ID saved');
+    makeClient();
+  });
+  $('copyLog').addEventListener('click', function () {
+    var text = store.get('log', []).map(function (e) { return stamp(new Date(e.t)) + '  ' + e.m; }).join('\n');
+    navigator.clipboard.writeText(text).then(function () { log('Log copied'); }, function () { log('Couldn’t copy the log', 'err'); });
+  });
+  $('clearLog').addEventListener('click', function () { store.set('log', []); drawLog(); });
+
+  // ---- start
+  $('origin').textContent = location.origin;
+  $('originHint').textContent = location.origin;
+  $('mode').textContent = (standalone ? 'Home Screen app' : 'browser tab') + ' · ' +
+    (/iPad|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1 ? 'iPad' : /iPhone/.test(navigator.userAgent) ? 'iPhone' : 'desktop');
+  log('Opened as a ' + (standalone ? 'Home Screen app' : 'browser tab') +
+    (token ? '; token from ' + mins(age()) + ' ago, ' + (valid() ? 'still valid' : 'expired') : '; no token yet'));
+  drawLog();
+  show();
+  setInterval(show, 15000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { log('Came back to the page' + (token ? '; token ' + (valid() ? 'still valid' : 'expired') : '')); show(); } });
+  var gis = $('gis');
+  if (window.google && google.accounts) makeClient();
+  else gis.addEventListener('load', makeClient);
+  gis.addEventListener('error', function () { log('Couldn’t load Google’s sign-in script', 'err'); });
+})();
+</script>
+</body>
+</html>
