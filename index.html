@@ -21,6 +21,9 @@
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 var(--ui);
   padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px)); }
 main { max-width: 640px; margin: 0 auto; display: grid; gap: 14px; }
+/* A Home Screen app on iPad sometimes leaves part of the page undrawn; drawn
+   as a layer of its own, it's drawn whole. */
+html { transform: translateZ(0); }
 h1 { font-size: 20px; margin: 0; }
 p { margin: 0; color: var(--muted); }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 10px; }
@@ -221,18 +224,7 @@ ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 13.5px; disp
   drawLog();
   show();
   setInterval(show, 15000);
-  // A Home Screen app on iPad sometimes leaves part of the page undrawn when
-  // it comes back; nudging it makes Safari draw it all again.
-  function redraw() {
-    var b = document.body;
-    b.style.transform = 'translateZ(0)';
-    requestAnimationFrame(function () { requestAnimationFrame(function () { b.style.transform = ''; }); });
-    window.scrollBy(0, 1); window.scrollBy(0, -1);
-  }
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) { log('Came back to the page' + (token ? '; token ' + (valid() ? 'still valid' : 'expired') : '')); show(); redraw(); setTimeout(redraw, 400); } });
-  window.addEventListener('pageshow', function () { redraw(); setTimeout(redraw, 400); });
-  // (And a tap anywhere, if some of it is still missing.)
-  document.addEventListener('pointerdown', redraw, true);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { log('Came back to the page' + (token ? '; token ' + (valid() ? 'still valid' : 'expired') : '')); show(); } });
   var gis = $('gis');
   if (window.google && google.accounts) makeClient();
   else gis.addEventListener('load', makeClient);
